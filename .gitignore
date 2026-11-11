@@ -1,0 +1,32 @@
+# Build output
+bin/
+obj/
+artifacts/
+*.nupkg
+*.snupkg
+
+# Test results and coverage
+TestResults/
+coverage/
+*.trx
+*.coverage
+*.coveragexml
+
+# IDEs and editors
+.vs/
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.user
+*.suo
+*.swp
+*.DotSettings.user
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Secrets: never commit keys
+.env
+*.env
+appsettings.*.local.json
