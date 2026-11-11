@@ -1,0 +1,123 @@
+# Publishes a release with Caltrop.dll. Either:
+#   - on GitHub: Actions > Release > Run workflow, and enter a version such as 1.0.0, or
+#   - push a tag such as v1.0.0 (or v1.1.0-beta.1 for a pre-release).
+name: Release
+
+on:
+  push:
+    tags: ['v*.*.*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to release, for example 1.0.0
+        required: true
+        type: string
+
+permissions:
+  contents: write       # create the tag and the release
+  id-token: write       # sign the build provenance
+  attestations: write   # store the build provenance
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Work out the version
+        id: version
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then version="$INPUT_VERSION"; else version="$GITHUB_REF_NAME"; fi
+          version="${version#v}"
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::'$version' is not a version like 1.2.3 or 1.2.3-beta.1"
+            exit 1
+          fi
+          echo "value=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+
+      - name: Build
+        run: dotnet build Caltrop.slnx --configuration Release -p:Version=${{ steps.version.outputs.value }}
+
+      - name: Test
+        run: dotnet test --project tests/Caltrop.Tests/Caltrop.Tests.csproj --configuration Release --no-build --minimum-expected-tests 150
+
+      - name: Collect the release files
+        run: |
+          mkdir release
+          cp src/Caltrop/bin/Release/net10.0/Caltrop.dll src/Caltrop/bin/Release/net10.0/Caltrop.xml release/
+          dotnet pack src/Caltrop/Caltrop.csproj --configuration Release --no-build --output release -p:Version=${{ steps.version.outputs.value }}
+          cd release
+          sha256sum Caltrop.dll Caltrop.xml *.nupkg > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      # A signed record that these exact files were built here, from this repository's code.
+      # Free for public repositories; skipped for private ones, where it needs GitHub Enterprise.
+      - name: Record build provenance
+        id: attest
+        if: ${{ !github.event.repository.private }}
+        uses: actions/attest@v4
+        with:
+          subject-path: release/*
+
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.value }}
+          TAG: ${{ steps.version.outputs.tag }}
+          ATTESTED: ${{ steps.attest.outcome == 'success' }}
+        run: |
+          repo_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
+          dll_sha256=$(sha256sum release/Caltrop.dll | cut -d' ' -f1)
+
+          cat > notes.md <<EOF
+          ## Download
+
+          | File | What it is |
+          | --- | --- |
+          | **Caltrop.dll** | The library. This one file is all you need. |
+          | Caltrop.xml | Optional. Put it next to the DLL to see method descriptions in your editor. |
+          | Caltrop.$VERSION.nupkg | Optional. The same library as a NuGet package. |
+          | SHA256SUMS.txt | SHA-256 checksums of the files above. |
+
+          To add Caltrop to your project, see [Install]($repo_url#install). It needs .NET 10 or later.
+
+          ## Verify your download
+
+          SHA-256 of Caltrop.dll: \`$dll_sha256\`
+
+          - Windows (PowerShell): \`Get-FileHash Caltrop.dll\`
+          - macOS and Linux: \`shasum -a 256 Caltrop.dll\`
+          EOF
+
+          if [[ "$ATTESTED" == "true" ]]; then
+            cat >> notes.md <<EOF
+
+          To confirm the file was built by GitHub Actions from this repository's code, run this with the
+          [GitHub CLI](https://cli.github.com):
+
+              gh attestation verify Caltrop.dll --repo $GITHUB_REPOSITORY
+          EOF
+          fi
+
+          prerelease=""
+          if [[ "$VERSION" == *-* ]]; then prerelease="--prerelease"; fi
+          gh release create "$TAG" release/* --target "$GITHUB_SHA" --title "Caltrop $VERSION" \
+            --notes-file notes.md --generate-notes $prerelease
+
+      - name: Publish to NuGet (optional, only when the NUGET_API_KEY secret is set)
+        if: env.NUGET_API_KEY != ''
+        run: dotnet nuget push "release/*.nupkg" --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate
