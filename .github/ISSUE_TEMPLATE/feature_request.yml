@@ -1,0 +1,24 @@
+name: Feature request
+description: Suggest something Caltrop should make easy.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: The security task you want to do, and what is hard about it today.
+    validations:
+      required: true
+
+  - type: textarea
+    id: api
+    attributes:
+      label: What could the API look like?
+      description: How you would like to call it, for example `Caltrop.Something.Do(...)`.
+      render: csharp
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives
+      description: Other libraries or approaches you have considered.
