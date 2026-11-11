@@ -1,0 +1,10 @@
+<Project>
+  <!--
+    Shipped inside the NuGet package. When a C# project has ImplicitUsings turned on (the default for new
+    projects), this adds `global using CaltropSecurity;` so Caltrop.Encrypt(...) works with no using line.
+    Opt out with <CaltropImplicitUsings>false</CaltropImplicitUsings>.
+  -->
+  <ItemGroup Condition="'$(Language)' == 'C#' and ('$(ImplicitUsings)' == 'enable' or '$(ImplicitUsings)' == 'true') and '$(CaltropImplicitUsings)' != 'false'">
+    <Using Include="CaltropSecurity" />
+  </ItemGroup>
+</Project>

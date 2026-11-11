@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>Caltrop</AssemblyName>
+    <!-- The namespace is CaltropSecurity (not Caltrop) so that the Caltrop class itself can be called as Caltrop.Encrypt(...). -->
+    <RootNamespace>CaltropSecurity</RootNamespace>
+
+    <Version>1.0.0</Version>
+    <PackageId>Caltrop</PackageId>
+    <Title>Caltrop</Title>
+    <Description>Drop-in security for .NET. Encryption, password hashing, signatures, tokens, 2FA codes, file encryption and more behind one simple API: Caltrop.Encrypt / Caltrop.Decrypt. Built only on the .NET crypto primitives, no dependencies.</Description>
+    <PackageTags>security;cryptography;crypto;encryption;aes-gcm;password-hashing;pbkdf2;totp;2fa;signatures;ecdsa;tokens;hmac</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon Condition="Exists('$(MSBuildThisFileDirectory)../../assets/icon.png')">icon.png</PackageIcon>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <!-- Debug info lives inside Caltrop.dll, so the single downloaded file is all anyone needs. -->
+    <DebugType>embedded</DebugType>
+
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Caltrop.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="PackageReadme.md" Pack="true" PackagePath="README.md" />
+    <None Include="build/Caltrop.targets" Pack="true" PackagePath="build/" />
+    <None Include="../../assets/icon.png" Pack="true" PackagePath="/" Condition="Exists('$(MSBuildThisFileDirectory)../../assets/icon.png')" />
+  </ItemGroup>
+
+</Project>
