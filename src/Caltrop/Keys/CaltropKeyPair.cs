@@ -174,10 +174,14 @@ public sealed class CaltropKeyPair : IDisposable
 
         try
         {
-            var candidate = new CaltropKeyPair(
-                new CaltropPublicKey(payload[..CaltropPublicKey.BlobSize]),
-                payload.AsSpan(CaltropPublicKey.BlobSize));
+            var publicKey = new CaltropPublicKey(payload[..CaltropPublicKey.BlobSize]);
+            if (!publicKey.HasValidPoints())
+            {
+                error = "The private key is damaged: its public part contains an invalid elliptic-curve point.";
+                return false;
+            }
 
+            var candidate = new CaltropKeyPair(publicKey, payload.AsSpan(CaltropPublicKey.BlobSize));
             if (!candidate.IsConsistent())
             {
                 candidate.Dispose();
@@ -224,7 +228,7 @@ public sealed class CaltropKeyPair : IDisposable
             CryptographicOperations.ZeroMemory(b);
             return same;
         }
-        catch (CryptographicException)
+        catch (Exception ex) when (ex is CryptographicException or PlatformNotSupportedException)
         {
             return false;
         }

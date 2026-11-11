@@ -124,13 +124,7 @@ public sealed class CaltropPublicKey : IEquatable<CaltropPublicKey>
         }
 
         var candidate = new CaltropPublicKey(blob);
-        try
-        {
-            // Importing checks that both points are valid points on the P-256 curve.
-            using ECDiffieHellman ecdh = candidate.CreateEcdh();
-            using ECDsa ecdsa = candidate.CreateEcdsa();
-        }
-        catch (CryptographicException)
+        if (!candidate.HasValidPoints())
         {
             error = "The public key contains an invalid elliptic-curve point.";
             return false;
@@ -138,5 +132,25 @@ public sealed class CaltropPublicKey : IEquatable<CaltropPublicKey>
 
         key = candidate;
         return true;
+    }
+
+    /// <summary>True if both points are on the P-256 curve and the platform accepts them.</summary>
+    internal bool HasValidPoints()
+    {
+        if (!P256.IsOnCurve(EncryptionPoint) || !P256.IsOnCurve(SigningPoint))
+        {
+            return false;
+        }
+
+        try
+        {
+            using ECDiffieHellman ecdh = CreateEcdh();
+            using ECDsa ecdsa = CreateEcdsa();
+            return true;
+        }
+        catch (Exception ex) when (ex is CryptographicException or PlatformNotSupportedException)
+        {
+            return false;
+        }
     }
 }

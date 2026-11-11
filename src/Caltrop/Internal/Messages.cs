@@ -242,10 +242,15 @@ internal static class PublicKeyMessages
             throw Errors.InvalidFormat("the ephemeral public key in its header is not an uncompressed P-256 point.");
         }
 
+        // Checking that the point is on the curve blocks invalid-curve attacks.
+        if (!P256.IsOnCurve(ephemeralPoint.Slice(1, Format.P256CoordinateSize), ephemeralPoint.Slice(1 + Format.P256CoordinateSize, Format.P256CoordinateSize)))
+        {
+            throw Errors.InvalidFormat("the ephemeral public key in its header is not a point on the P-256 curve.");
+        }
+
         ECDiffieHellman ephemeral;
         try
         {
-            // Import validates that the point is on the curve, which blocks invalid-curve attacks.
             ephemeral = ECDiffieHellman.Create(new ECParameters
             {
                 Curve = ECCurve.NamedCurves.nistP256,
@@ -256,7 +261,7 @@ internal static class PublicKeyMessages
                 },
             });
         }
-        catch (CryptographicException ex)
+        catch (Exception ex) when (ex is CryptographicException or PlatformNotSupportedException)
         {
             throw new CaltropException(CaltropErrorCode.InvalidFormat, "This is not valid Caltrop data: the ephemeral public key in its header is invalid.", ex);
         }
