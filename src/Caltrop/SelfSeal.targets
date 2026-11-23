@@ -1,0 +1,83 @@
+<Project>
+  <!--
+    Seals Caltrop.dll after every build, so Caltrop.Tamper.CheckCaltrop() can tell if the file is changed later.
+
+    Caltrop.dll contains a 16-byte marker followed by a 32-byte empty slot (see Internal/SelfSeal.cs). This step
+    finds the slot, computes the SHA-256 of the whole file with the slot zeroed, and writes the hash into the slot.
+    Like Authenticode, it skips the PE checksum, the certificate table entry and any certificate data, so signing
+    the DLL afterwards does not break the seal. Internal/SelfSeal.cs repeats exactly this calculation at runtime.
+  -->
+  <UsingTask TaskName="CaltropSelfSeal" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <AssemblyPath ParameterType="System.String" Required="true" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System" />
+      <Using Namespace="System.IO" />
+      <Code Type="Fragment" Language="cs"><![CDATA[
+byte[] marker = new byte[] { 0xC4, 0x1A, 0x7E, 0x93, 0x5B, 0xD2, 0x08, 0xF6, 0x2C, 0xA1, 0x6D, 0x3F, 0xE8, 0x47, 0xB9, 0x10 };
+byte[] file = File.ReadAllBytes(AssemblyPath);
+int slot = -1;
+int found = 0;
+for (int i = 0; i + marker.Length + 32 <= file.Length; i++)
+{
+    int j = 0;
+    while (j < marker.Length && file[i + j] == marker[j]) j++;
+    if (j == marker.Length) { found++; slot = i + marker.Length; }
+}
+
+if (found != 1)
+{
+    Log.LogError("Caltrop self-seal: expected one seal slot in " + AssemblyPath + " but found " + found + ".");
+}
+else
+{
+    byte[] copy = (byte[])file.Clone();
+    Array.Clear(copy, slot, 32);
+    long certStart = 0, certLength = 0;
+    int pe = copy.Length >= 0x40 ? BitConverter.ToInt32(copy, 0x3C) : -1;
+    if (pe > 0 && pe + 24 + 240 <= copy.Length && copy[pe] == (byte)'P' && copy[pe + 1] == (byte)'E' && copy[pe + 2] == 0 && copy[pe + 3] == 0)
+    {
+        int opt = pe + 24;
+        bool plus = BitConverter.ToUInt16(copy, opt) == 0x20B;
+        Array.Clear(copy, opt + 64, 4);
+        int dirs = opt + (plus ? 112 : 96);
+        if (BitConverter.ToInt32(copy, dirs - 4) > 4)
+        {
+            int entry = dirs + 32;
+            certStart = BitConverter.ToUInt32(copy, entry);
+            certLength = BitConverter.ToUInt32(copy, entry + 4);
+            Array.Clear(copy, entry, 8);
+        }
+    }
+
+    byte[] input = copy;
+    if (certLength > 0 && certStart + certLength <= copy.Length)
+    {
+        input = new byte[copy.Length - certLength];
+        Array.Copy(copy, 0, input, 0, certStart);
+        Array.Copy(copy, certStart + certLength, input, certStart, copy.Length - certStart - certLength);
+    }
+
+    byte[] hash;
+    using (var sha = System.Security.Cryptography.SHA256.Create()) { hash = sha.ComputeHash(input); }
+
+    bool same = true;
+    for (int k = 0; k < 32; k++) { if (file[slot + k] != hash[k]) same = false; }
+    if (!same)
+    {
+        Array.Copy(hash, 0, file, slot, 32);
+        File.WriteAllBytes(AssemblyPath, file);
+    }
+}
+]]></Code>
+    </Task>
+  </UsingTask>
+
+  <Target Name="CaltropSelfSeal" AfterTargets="CoreCompile" Condition="'$(DesignTimeBuild)' != 'true'">
+    <PropertyGroup>
+      <_CaltropBuiltAssembly>@(IntermediateAssembly->'%(FullPath)')</_CaltropBuiltAssembly>
+    </PropertyGroup>
+    <CaltropSelfSeal AssemblyPath="$(_CaltropBuiltAssembly)" Condition="Exists('$(_CaltropBuiltAssembly)')" />
+  </Target>
+</Project>

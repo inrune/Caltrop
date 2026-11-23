@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>Caltrop</AssemblyName>
+    <RootNamespace>CaltropSecurity</RootNamespace>
+    <!-- The public types (Caltrop, CaltropKey, ...) have no namespace on purpose: adding the DLL is all it takes, no "using" line. -->
+    <NoWarn>$(NoWarn);CA1050</NoWarn>
+
+    <Version>1.0.0</Version>
+    <Description>Drop-in, offline security for .NET: encryption, passwords, signatures, tokens, file encryption, a vault, a tamper-proof log, safe input helpers and traps that catch attackers. One DLL, no dependencies.</Description>
+
+    <!-- Debug info and the source code live inside Caltrop.dll, so one file is all anyone needs, even to step into it. -->
+    <DebugType>embedded</DebugType>
+    <EmbedAllSources>true</EmbedAllSources>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <IsAotCompatible>true</IsAotCompatible>
+    <IsPackable>false</IsPackable>
+    <!-- Caltrop uses no packages, so there is nothing to check online: this keeps offline builds working. -->
+    <NuGetAudit>false</NuGetAudit>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Caltrop.Tests" />
+    <EmbeddedResource Include="Data/common-passwords.txt" LogicalName="Caltrop.common-passwords.txt" />
+  </ItemGroup>
+
+  <!-- After every build, writes the seal that Caltrop.Tamper.CheckCaltrop() uses to spot a changed Caltrop.dll. -->
+  <Import Project="SelfSeal.targets" />
+
+</Project>

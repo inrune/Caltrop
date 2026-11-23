@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="src/Caltrop/Caltrop.csproj" />
+  <Project Path="tests/Caltrop.Tests/Caltrop.Tests.csproj" />
+</Solution>

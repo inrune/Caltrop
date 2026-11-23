@@ -1,0 +1,28 @@
+<Project>
+  <!-- Settings shared by the library and its tests. -->
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+
+    <Product>Caltrop</Product>
+    <Authors>inrune</Authors>
+    <Copyright>Copyright (c) 2026 inrune</Copyright>
+
+    <!-- Everything the build makes goes into one "artifacts" folder, so the source folders stay clean. -->
+    <UseArtifactsOutput>true</UseArtifactsOutput>
+
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+
+    <!--
+      Reproducible builds: the same source and the same .NET SDK always make exactly the same Caltrop.dll, on any
+      computer, in any folder, so anyone can check that a release was built from this source. The build machine's
+      folders (which often contain a user name) are replaced by /_/, and nothing about git is written in.
+    -->
+    <Deterministic>true</Deterministic>
+    <PathMap>$(MSBuildThisFileDirectory.Replace(',', ',,').Replace('=', '=='))=/_/</PathMap>
+    <EnableSourceLink>false</EnableSourceLink>
+    <EnableSourceControlManagerQueries>false</EnableSourceControlManagerQueries>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+  </PropertyGroup>
+</Project>
